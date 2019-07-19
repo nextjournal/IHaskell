@@ -271,6 +271,8 @@ receiveMessage debug sock = do
   -- Read all identifiers until the identifier/message delimiter.
   idents <- readUntil "<IDS|MSG>"
 
+  putStrLn ("Receive Message: " ++ (show idents))
+
   -- Ignore the signature for now.
   void next
 
