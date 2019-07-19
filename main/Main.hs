@@ -107,6 +107,9 @@ runKernel kOpts profileSrc = do
       libdir = kernelSpecGhcLibdir kOpts
       useStack = kernelSpecUseStack kOpts
 
+  when debug $ do
+    putStr "Running Kernel"
+
   -- Parse the profile file.
   let profileErr = error $ "ihaskell: "++profileSrc++": Failed to parse profile file"
   profile <- liftM (fromMaybe profileErr . decode) $ LBS.readFile profileSrc
@@ -114,6 +117,9 @@ runKernel kOpts profileSrc = do
   -- Necessary for `getLine` and their ilk to work.
   dir <- getIHaskellDir
   Stdin.recordKernelProfile dir profile
+
+  when debug $ do
+    putStr "Kernel profile Written"
 
   when useStack $ do
     -- Detect if we have stack
@@ -133,13 +139,22 @@ runKernel kOpts profileSrc = do
             Nothing -> return ()
             Just val' -> setEnv var val'
 
+  when debug $ do
+    putStr "Stack Environment set."
+
   -- Serve on all sockets and ports defined in the profile.
   interface <- serveProfile profile debug
+
+  when debug $ do
+    putStr "ZMQ sockets bound."
 
   -- Create initial state in the directory the kernel *should* be in.
   state <- initialKernelState
   modifyMVar_ state $ \kernelState -> return $
     kernelState { kernelDebug = debug }
+
+  when debug $ do
+    putStr "Initial Kernel state setup, starting Eval loop."
 
   -- Receive and reply to all messages on the shell socket.
   interpret libdir True $ \hasSupportLibraries -> do
@@ -164,9 +179,14 @@ runKernel kOpts profileSrc = do
       Just filename -> liftIO (readFile filename) >>= evaluator
       Nothing       -> return ()
 
+    when debug $ do
+      putStr "start Listening on Shell Socket."
+
     forever $ do
       -- Read the request from the request channel.
       request <- liftIO $ readChan $ shellRequestChannel interface
+      when debug $ do
+        putStr ( "received: " ++ (show request))
 
       -- Create a header for the reply.
       replyHeader <- createReplyHeader (header request)
